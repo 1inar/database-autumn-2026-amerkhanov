@@ -128,15 +128,12 @@ BEGIN;
 INSERT INTO tx_demo_poems (author_id, title)
 VALUES (1, 'Ещё одна запись перед ошибкой');
 
--- Нарушение CHECK: poem_count не может быть отрицательным.
 UPDATE tx_demo_authors
 SET poem_count = -100
 WHERE author_id = 1;
 
--- До этой точки выполнение не дойдёт из-за ошибки предыдущей команды.
 COMMIT;
 
--- После ошибки выполните отдельно:
 ROLLBACK;
 
 SELECT * FROM tx_demo_poems
@@ -170,7 +167,6 @@ UPDATE tx_demo_authors
 SET poem_count = 77
 WHERE author_id = 1;
 
--- Не выполняйте COMMIT пока T2 не сделает SELECT.
 SELECT poem_count FROM tx_demo_authors WHERE author_id = 1;
 ```
 
@@ -207,7 +203,6 @@ UPDATE tx_demo_authors
 SET poem_count = 15
 WHERE author_id = 1;
 
--- Оставить транзакцию открытой.
 ```
 
 T2:
@@ -247,8 +242,6 @@ SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
 
--- Теперь выполните UPDATE и COMMIT в T2.
--- Затем повторите SELECT:
 SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
@@ -280,7 +273,6 @@ SELECT author_name, poem_count
 FROM tx_demo_authors
 WHERE author_id = 2;
 
--- Во время паузы выполните T2.
 SELECT author_name, poem_count
 FROM tx_demo_authors
 WHERE author_id = 2;
@@ -316,14 +308,12 @@ SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
 
--- Выполните T2 и дождитесь COMMIT.
 SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
 
 COMMIT;
 
--- Новая транзакция получает новый снимок.
 SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
@@ -354,7 +344,6 @@ FROM tx_demo_poems
 WHERE title LIKE 'Фантом-%'
 ORDER BY poem_id;
 
--- Выполните INSERT и COMMIT в T2.
 SELECT poem_id, title
 FROM tx_demo_poems
 WHERE title LIKE 'Фантом-%'
@@ -362,7 +351,6 @@ ORDER BY poem_id;
 
 COMMIT;
 
--- В новой транзакции строка уже видна.
 SELECT poem_id, title
 FROM tx_demo_poems
 WHERE title LIKE 'Фантом-%'
@@ -401,7 +389,6 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
 INSERT INTO tx_demo_poems (author_id, title)
 VALUES (1, 'Одинаковое название');
--- Не фиксировать до выполнения INSERT в T2.
 ```
 
 T2:
@@ -413,7 +400,6 @@ SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 INSERT INTO tx_demo_poems (author_id, title)
 VALUES (2, 'Одинаковое название');
 
--- Если INSERT ожидает завершения T1, сначала выполните COMMIT в T1.
 ```
 
 T1:
@@ -444,12 +430,11 @@ SELECT poem_count
 FROM tx_demo_authors
 WHERE author_id = 1;
 
--- Пока T1 открыта, выполните UPDATE в T2.
 UPDATE tx_demo_authors
 SET poem_count = poem_count + 1
 WHERE author_id = 1;
 
--- Пока не выполняйте COMMIT: сначала завершите T2.
+
 ```
 
 T2:
@@ -484,28 +469,23 @@ COMMIT;
 ```sql
 BEGIN;
 
--- Изменение до точки сохранения.
 UPDATE tx_demo_authors
 SET poem_count = poem_count + 1
 WHERE author_id = 1;
 
 SAVEPOINT before_second_change;
 
--- Изменение после точки сохранения.
 INSERT INTO tx_demo_poems (author_id, title)
 VALUES (1, 'Будет отменено через SAVEPOINT');
 
--- Откатываем только INSERT.
 ROLLBACK TO SAVEPOINT before_second_change;
 
--- UPDATE, выполненный до SAVEPOINT, остаётся.
 SELECT * FROM tx_demo_authors WHERE author_id = 1;
 SELECT * FROM tx_demo_poems
 WHERE title = 'Будет отменено через SAVEPOINT';
 
 COMMIT;
 
--- Проверяем зафиксированное состояние.
 SELECT * FROM tx_demo_authors WHERE author_id = 1;
 SELECT * FROM tx_demo_poems
 WHERE title = 'Будет отменено через SAVEPOINT';
@@ -534,14 +514,11 @@ UPDATE tx_demo_authors
 SET poem_count = poem_count + 100
 WHERE author_id = 2;
 
--- Сейчас внутри транзакции прибавлено 111.
 SELECT poem_count FROM tx_demo_authors WHERE author_id = 2;
 
--- Откат к sp_second отменяет только последнее +100.
 ROLLBACK TO SAVEPOINT sp_second;
 SELECT poem_count FROM tx_demo_authors WHERE author_id = 2;
 
--- Откат к sp_first отменяет +10, но оставляет первое +1.
 ROLLBACK TO SAVEPOINT sp_first;
 SELECT poem_count FROM tx_demo_authors WHERE author_id = 2;
 
